@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Surah Al-Mulk Recitation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        table {
+            width: 90%;
+            margin: auto;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        button {
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+        .audio-link {
+            display: block;
+            margin-top: 5px;
+            font-size: 12px;
+            color: blue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>Surah Al-Mulk Recitation Tracker</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Day</th>
+                <th>Ayat</th>
+                <th>Meaning</th>
+                <th>Tafsir</th>
+                <th>Audio</th>
+            </tr>
+        </thead>
+        <tbody id="quranTable">
+            <!-- Rows will be dynamically populated -->
+        </tbody>
+    </table>
+
+    <script>
+        const ayatData = [
+            { ayat: "تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ", meaning: "Blessed is He in whose hand is dominion.", tafsir: "Allah has full control over everything." },
+            { ayat: "الَّذِي خَلَقَ الْمَوْتَ وَالْحَيَاةَ", meaning: "He who created death and life to test you.", tafsir: "Life is a test from Allah." },
+            { ayat: "الَّذِي خَلَقَ سَبْعَ سَمَاوَاتٍ طِبَاقًا", meaning: "Who created seven heavens in layers.", tafsir: "Allah’s creation is perfect." },
+            // Add remaining ayahs...
+        ];
+
+        const tableBody = document.getElementById("quranTable");
+
+        for (let i = 0; i < 30; i++) {
+            const row = document.createElement("tr");
+
+            row.innerHTML = `
+                <td>${i + 1}</td>
+                <td>${ayatData[i % ayatData.length].ayat}</td>
+                <td>${ayatData[i % ayatData.length].meaning}</td>
+                <td>${ayatData[i % ayatData.length].tafsir}</td>
+                <td>
+                    <button onclick="startRecording(${i})">🎤 Record</button>
+                    <button onclick="stopRecording(${i})" disabled>⏹ Stop</button>
+                    <audio id="audio${i}" controls></audio>
+                    <a id="audioLink${i}" class="audio-link" target="_blank"></a>
+                </td>
+            `;
+
+            tableBody.appendChild(row);
+        }
+
+        let mediaRecorder;
+        let audioChunks = {};
+
+        function startRecording(index) {
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks[index] = [];
+
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks[index].push(event.data);
+                };
+
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks[index], { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    document.getElementById(`audio${index}`).src = audioUrl;
+
+                    // Upload to backend
+                    uploadAudio(audioBlob, index);
+                };
+
+                mediaRecorder.start();
+                document.querySelectorAll(`button[onclick="startRecording(${index})"]`)[0].disabled = true;
+                document.querySelectorAll(`button[onclick="stopRecording(${index})"]`)[0].disabled = false;
+            });
+        }
+
+        function stopRecording(index) {
+            mediaRecorder.stop();
+            document.querySelectorAll(`button[onclick="startRecording(${index})"]`)[0].disabled = false;
+            document.querySelectorAll(`button[onclick="stopRecording(${index})"]`)[0].disabled = true;
+        }
+
+        async function uploadAudio(audioBlob, index) {
+            let formData = new FormData();
+            formData.append("audio", audioBlob, `surah_al_mulk_day_${index + 1}.wav`);
+
+            let response = await fetch("http://localhost:3000/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            let result = await response.json();
+
+            if (result.fileUrl) {
+                let linkElement = document.getElementById(`audioLink${index}`);
+                linkElement.href = result.fileUrl;
+                linkElement.innerText = "🔗 Listen on Google Drive";
+            } else {
+                alert("Upload failed.");
+            }
+        }
+    </script>
+</body>
+</html>

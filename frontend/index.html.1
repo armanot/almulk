@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Recorder</title>
+</head>
+<body>
+    <h2>Record Your Voice</h2>
+    <button id="start">Start Recording</button>
+    <button id="stop" disabled>Stop Recording</button>
+    <audio id="audioPlayback" controls></audio>
+    <button id="upload" disabled>Upload to Google Drive</button>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioBlob;
+
+        document.getElementById("start").addEventListener("click", async () => {
+            let stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks = [];
+
+            mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+            mediaRecorder.onstop = async () => {
+                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                let audioUrl = URL.createObjectURL(audioBlob);
+                document.getElementById("audioPlayback").src = audioUrl;
+                document.getElementById("upload").disabled = false;
+            };
+
+            mediaRecorder.start();
+            document.getElementById("stop").disabled = false;
+            document.getElementById("start").disabled = true;
+        });
+
+        document.getElementById("stop").addEventListener("click", () => {
+            mediaRecorder.stop();
+            document.getElementById("start").disabled = false;
+            document.getElementById("stop").disabled = true;
+        });
+
+        document.getElementById("upload").addEventListener("click", async () => {
+            let formData = new FormData();
+            formData.append("audio", audioBlob, "recording.wav");
+
+            let response = await fetch("http://localhost:3000/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            let result = await response.json();
+            alert(result.message);
+        });
+    </script>
+</body>
+</html>

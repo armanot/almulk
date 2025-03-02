@@ -86,27 +86,32 @@
         let audioChunks = {};
 
         function startRecording(index) {
-            navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks[index] = [];
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    audioChunks[index] = [];
 
-                mediaRecorder.ondataavailable = event => {
-                    audioChunks[index].push(event.data);
-                };
+                    mediaRecorder.ondataavailable = event => {
+                        audioChunks[index].push(event.data);
+                    };
 
-                mediaRecorder.onstop = () => {
-                    const audioBlob = new Blob(audioChunks[index], { type: 'audio/wav' });
-                    const audioUrl = URL.createObjectURL(audioBlob);
-                    document.getElementById(`audio${index}`).src = audioUrl;
+                    mediaRecorder.onstop = () => {
+                        const audioBlob = new Blob(audioChunks[index], { type: 'audio/wav' });
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        document.getElementById(`audio${index}`).src = audioUrl;
 
-                    // Upload to backend
-                    uploadAudio(audioBlob, index);
-                };
+                        // Upload to backend
+                        uploadAudio(audioBlob, index);
+                    };
 
-                mediaRecorder.start();
-                document.querySelectorAll(`button[onclick="startRecording(${index})"]`)[0].disabled = true;
-                document.querySelectorAll(`button[onclick="stopRecording(${index})"]`)[0].disabled = false;
-            });
+                    mediaRecorder.start();
+                    document.querySelectorAll(`button[onclick="startRecording(${index})"]`)[0].disabled = true;
+                    document.querySelectorAll(`button[onclick="stopRecording(${index})"]`)[0].disabled = false;
+                })
+                .catch(error => {
+                    alert("Microphone access denied! Please enable microphone permissions.");
+                    console.error("Microphone access error:", error);
+                });
         }
 
         function stopRecording(index) {
@@ -119,19 +124,25 @@
             let formData = new FormData();
             formData.append("audio", audioBlob, `surah_al_mulk_day_${index + 1}.wav`);
 
-            let response = await fetch("http://localhost:3000/upload", {
-                method: "POST",
-                body: formData
-            });
+            try {
+                let response = await fetch("https://almulk.onrender.com/upload", {  // ✅ FIXED: Use HTTPS & Render URL
+                    method: "POST",
+                    body: formData
+                });
 
-            let result = await response.json();
+                let result = await response.json();
 
-            if (result.fileUrl) {
-                let linkElement = document.getElementById(`audioLink${index}`);
-                linkElement.href = result.fileUrl;
-                linkElement.innerText = "🔗 Listen on Google Drive";
-            } else {
-                alert("Upload failed.");
+                if (result.fileUrl) {
+                    let linkElement = document.getElementById(`audioLink${index}`);
+                    linkElement.href = result.fileUrl;
+                    linkElement.innerText = "🔗 Listen on Google Drive";
+                } else {
+                    alert("Upload failed.");
+                    console.error("Upload error:", result);
+                }
+            } catch (error) {
+                alert("Error uploading audio. Please try again.");
+                console.error("Upload request error:", error);
             }
         }
     </script>
